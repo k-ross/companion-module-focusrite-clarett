@@ -54,6 +54,9 @@ export class FocusriteClient extends EventEmitter {
 		this.deviceState = new Map()
 		this.keepAliveInterval = null
 		this.reconnectTimeout = null
+		// Set while we are tearing the socket down on purpose, so the close
+		// handler does not schedule a reconnect we asked not to happen.
+		this.intentionalClose = false
 
 		// Source name map (source ID -> name like "Analogue 1", "Playback 1")
 		this.sourceNames = new Map()
@@ -69,9 +72,14 @@ export class FocusriteClient extends EventEmitter {
 	connect() {
 		return new Promise((resolve, reject) => {
 			if (this.socket) {
+				// Drop the old socket's listeners first, otherwise its close
+				// event lands on the handlers below and looks like a drop of the
+				// connection we are in the middle of opening.
+				this.socket.removeAllListeners()
 				this.socket.destroy()
 			}
 
+			this.intentionalClose = false
 			this.socket = new net.Socket()
 			this.socket.setEncoding('utf8')
 
@@ -91,6 +99,7 @@ export class FocusriteClient extends EventEmitter {
 				this.connected = false
 				this.approved = false
 				this.stopKeepAlive()
+				if (this.intentionalClose) return
 				this.emit('disconnected')
 				this.scheduleReconnect()
 			})
@@ -107,12 +116,14 @@ export class FocusriteClient extends EventEmitter {
 	}
 
 	disconnect() {
+		this.intentionalClose = true
 		this.stopKeepAlive()
 		if (this.reconnectTimeout) {
 			clearTimeout(this.reconnectTimeout)
 			this.reconnectTimeout = null
 		}
 		if (this.socket) {
+			this.socket.removeAllListeners()
 			this.socket.destroy()
 			this.socket = null
 		}
@@ -121,6 +132,7 @@ export class FocusriteClient extends EventEmitter {
 	}
 
 	scheduleReconnect() {
+		if (this.intentionalClose) return
 		if (this.reconnectTimeout) return
 		this.reconnectTimeout = setTimeout(() => {
 			this.reconnectTimeout = null
