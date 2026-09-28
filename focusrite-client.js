@@ -91,6 +91,12 @@ export class FocusriteClient extends EventEmitter {
 		this.socket = null
 		this.connected = false
 		this.approved = false
+		// Whether the server has told us anything about our own approval yet.
+		// Distinguishes "not approved" from "no answer so far".
+		this.approvalKnown = false
+		// The id the server assigns us in its <client-details> reply. Approval
+		// messages are keyed by this, not by hostname.
+		this.serverClientId = null
 		this.buffer = ''
 		this.devices = new Map()
 		this.deviceState = new Map()
@@ -140,6 +146,8 @@ export class FocusriteClient extends EventEmitter {
 			this.socket.on('close', () => {
 				this.connected = false
 				this.approved = false
+				this.approvalKnown = false
+				this.serverClientId = null
 				this.stopKeepAlive()
 				if (this.intentionalClose) return
 				this.emit('disconnected')
@@ -171,6 +179,8 @@ export class FocusriteClient extends EventEmitter {
 		}
 		this.connected = false
 		this.approved = false
+		this.approvalKnown = false
+		this.serverClientId = null
 	}
 
 	scheduleReconnect() {
@@ -270,6 +280,14 @@ export class FocusriteClient extends EventEmitter {
 				return
 			}
 
+			// The server answers our handshake with the id it will use to refer
+			// to us from then on, including in approval messages.
+			if (xml.startsWith('<client-details')) {
+				this.serverClientId = xml.match(/id="([^"]*)"/)?.[1] ?? null
+				this.emit('debug', `Server assigned this client id ${this.serverClientId}`)
+				return
+			}
+
 			// Handle device arrival
 			if (xml.includes('<device-arrival>') || xml.includes('<device ')) {
 				await this.parseDeviceArrival(xml)
@@ -289,8 +307,7 @@ export class FocusriteClient extends EventEmitter {
 
 			// Handle approval
 			if (xml.includes('<approval')) {
-				this.approved = true
-				this.emit('approved')
+				this.handleApproval(xml)
 				return
 			}
 
@@ -303,6 +320,56 @@ export class FocusriteClient extends EventEmitter {
 			this.emit('debug', `Unknown message: ${xml.substring(0, 100)}...`)
 		} catch (err) {
 			this.emit('error', err)
+		}
+	}
+
+	/**
+	 * Track our own approval state.
+	 *
+	 * On connect the server reports the state of every client it knows about, one
+	 * <approval> message each, carrying an explicit authorised flag:
+	 *
+	 *   <approval hostname="Focusrite Midi Control" id="15292012315328466575" type="response" authorised="true"/>
+	 *   <approval hostname="Companion-Focusrite"    id="13558620755254330003" type="response" authorised="true"/>
+	 *   <approval hostname="Companion-Focusrite"    id="5178171929872993862"  type="response" authorised="false"/>
+	 *
+	 * Two things matter here. An approval naming somebody else says nothing about
+	 * us, and one naming us may be a refusal, so treating any <approval> as our
+	 * own approval reports a healthy connection while the server quietly discards
+	 * everything we send.
+	 *
+	 * Less obviously, the hostname does not identify us. As above, several clients
+	 * can register the same hostname with different client keys and end up with
+	 * different approval states, so matching on hostname picks an arbitrary one of
+	 * them. The id the server handed us in its <client-details> reply is the only
+	 * reliable identity, so match on that and use the hostname for reporting only.
+	 *
+	 * Emits 'approved' once we are authorised and 'approval-required' while we are
+	 * not, on change only, since this state is repeated on every connect. Until
+	 * the server mentions our id at all, approval stays unknown rather than denied,
+	 * which is the case for a client key the user has not yet responded to.
+	 */
+	handleApproval(xml) {
+		const hostname = xml.match(/hostname="([^"]*)"/)?.[1] ?? ''
+		const id = xml.match(/id="([^"]*)"/)?.[1] ?? ''
+		const authorisedAttr = xml.match(/authori[sz]ed="([^"]*)"/i)?.[1]
+		const authorised = authorisedAttr === 'true'
+
+		if (!this.serverClientId || id !== this.serverClientId) {
+			this.emit('debug', `Approval state for another client "${hostname}" (id ${id}): authorised=${authorised}`)
+			return
+		}
+
+		const previous = this.approvalKnown ? this.approved : null
+		this.approvalKnown = true
+		this.approved = authorised
+
+		if (previous === authorised) return
+
+		if (authorised) {
+			this.emit('approved')
+		} else {
+			this.emit('approval-required', hostname)
 		}
 	}
 

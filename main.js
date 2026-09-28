@@ -127,6 +127,18 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.updateStatus(InstanceStatus.Ok)
 		})
 
+		this.client.on('approval-required', (hostname) => {
+			// The socket is up, so this is not a connection problem. Commands are
+			// accepted by the socket and then discarded by the server, which looks
+			// like nothing happening at all unless we say so here.
+			this.log(
+				'error',
+				`Focusrite Control has not approved this client, so every command will be ignored. ` +
+					`Open Focusrite Control and approve "${hostname}".`,
+			)
+			this.updateStatus(InstanceStatus.InsufficientPermissions, `"${hostname}" not approved in Focusrite Control`)
+		})
+
 		this.client.on('disconnected', () => {
 			this.log('warn', 'Disconnected from FocusriteControlServer')
 			this.updateStatus(InstanceStatus.Disconnected)
