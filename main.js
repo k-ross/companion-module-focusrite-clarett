@@ -1,5 +1,5 @@
 import { InstanceBase, Regex, InstanceStatus } from '@companion-module/base'
-import { FocusriteClient } from './focusrite-client.js'
+import { FocusriteClient, isSupportedDevice, SUPPORTED_DEVICE_CLASSES } from './focusrite-client.js'
 import { updateActions } from './actions.js'
 import { updateFeedbacks } from './feedbacks.js'
 import { updateVariables } from './variables.js'
@@ -77,11 +77,21 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.log('debug', msg)
 		})
 
-		this.client.on('device-arrived', (device) => {
-			this.log('info', `Device arrived: ${device.name}`)
+		this.client.on('device-renamed', (device) => {
+			if (device.id === this.deviceId) {
+				this.deviceInfo = device
+				this.updateVariableValues()
+			}
+		})
 
-			// Use first device or match configured device
-			if (!this.deviceId || device.name.includes('Clarett')) {
+		this.client.on('device-arrived', (device) => {
+			this.log(
+				'info',
+				`Device arrived: ${device.model || 'unknown model'} (class ${device.deviceClass || 'unknown'}, ` +
+					`serial ${device.serial || 'unknown'})`,
+			)
+
+			if (this.shouldUseDevice(device)) {
 				this.deviceId = device.id
 				this.deviceInfo = device
 				this.items = device.items
@@ -124,6 +134,29 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.log('error', `Failed to connect: ${err.message}`)
 			this.updateStatus(InstanceStatus.ConnectionFailure, err.message)
 		}
+	}
+
+	/**
+	 * Decide whether an arriving device should become the one we control.
+	 *
+	 * Takes the first supported device and keeps it, rather than letting a later
+	 * arrival silently steal the connection.
+	 *
+	 * @param {object} device
+	 * @returns {boolean}
+	 */
+	shouldUseDevice(device) {
+		if (!isSupportedDevice(device)) {
+			this.log(
+				'debug',
+				`Ignoring device ${device.model || device.id}: class "${device.deviceClass}" is not one of ` +
+					SUPPORTED_DEVICE_CLASSES.join(', '),
+			)
+			return false
+		}
+
+		// Already bound to something supported, so leave it alone.
+		return this.deviceId === null || this.deviceId === device.id
 	}
 
 	parseDeviceStructure() {
@@ -201,8 +234,12 @@ export default class FocusriteClarettInstance extends InstanceBase {
 		}
 
 		if (this.deviceInfo) {
-			values['device_name'] = this.deviceInfo.name
+			// Prefer the nickname the user set in Focusrite Control, falling back
+			// to the model, since the server sends no name attribute of its own.
+			values['device_name'] = this.deviceInfo.nickname || this.deviceInfo.model || 'Unknown'
 			values['device_model'] = this.deviceInfo.model
+			values['device_class'] = this.deviceInfo.deviceClass
+			values['device_serial'] = this.deviceInfo.serial
 		}
 
 		if (this.monitoring?.dim) {
@@ -248,7 +285,10 @@ export default class FocusriteClarettInstance extends InstanceBase {
 				width: 12,
 				label: 'Information',
 				value:
-					'This module connects to the FocusriteControlServer to control your Clarett interface. Make sure Focusrite Control is installed (but does not need to be running).',
+					'This module connects to the FocusriteControlServer to control your Focusrite interface. ' +
+					'Supported device families: ' +
+					SUPPORTED_DEVICE_CLASSES.join(', ') +
+					'. Make sure Focusrite Control is installed (but does not need to be running).',
 			},
 			{
 				type: 'textinput',
@@ -279,6 +319,7 @@ export default class FocusriteClarettInstance extends InstanceBase {
 		if (hostChanged || portChanged) {
 			if (this.client) {
 				this.client.disconnect()
+				this.client = null
 			}
 			await this.connectToServer()
 		}

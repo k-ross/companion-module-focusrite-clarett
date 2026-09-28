@@ -38,6 +38,28 @@ import { EventEmitter } from 'events'
 import net from 'net'
 import { parseStringPromise } from 'xml2js'
 
+/**
+ * Device classes this module knows how to drive.
+ *
+ * Clarett and Scarlett expose the same control schema through
+ * FocusriteControlServer, so the same item parsing works for both.
+ */
+export const SUPPORTED_DEVICE_CLASSES = ['Clarett', 'Scarlett']
+
+/**
+ * Whether a parsed device looks like something this module can drive.
+ *
+ * Checks the class attribute first and falls back to the model string, so a
+ * device that omits class still matches on a recognisable model name.
+ *
+ * @param {{ deviceClass?: string, model?: string }} deviceInfo
+ * @returns {boolean}
+ */
+export function isSupportedDevice(deviceInfo) {
+	const haystack = `${deviceInfo?.deviceClass || ''} ${deviceInfo?.model || ''}`.toLowerCase()
+	return SUPPORTED_DEVICE_CLASSES.some((cls) => haystack.includes(cls.toLowerCase()))
+}
+
 export class FocusriteClient extends EventEmitter {
 	constructor(options = {}) {
 		super()
@@ -279,12 +301,27 @@ export class FocusriteClient extends EventEmitter {
 			}
 
 			for (const dev of device) {
-				const deviceId = dev.$.id
+				const attrs = dev.$ || {}
+				const deviceId = attrs.id
+
+				// The server does not send a "name" attribute. Real arrivals look like:
+				//   <device id="1" protocol="USB" model="Scarlett 18i20 (2nd Gen)"
+				//           class="Scarlett" bus-id="0" serial-number="4485" version="2">
+				// The user-facing name lives in the <nickname> item and only arrives
+				// later, in a <set> update, so model is the best name we have up front.
+				const model = attrs.model || ''
+				const deviceClass = attrs.class || ''
 				const deviceInfo = {
 					id: deviceId,
-					name: dev.$.name || 'Unknown',
-					model: dev.$.model || '',
-					serial: dev.$.serial || '',
+					name: model || deviceClass || 'Unknown',
+					model: model,
+					deviceClass: deviceClass,
+					protocol: attrs.protocol || '',
+					serial: attrs['serial-number'] || attrs.serial || '',
+					version: attrs.version || '',
+					// Item id carrying the editable device nickname, when present.
+					nicknameItem: dev.nickname?.$?.id || null,
+					nickname: '',
 					items: new Map(),
 					hardwareInputs: [],
 					mixes: [],
@@ -318,7 +355,9 @@ export class FocusriteClient extends EventEmitter {
 				this.emit('device-arrived', deviceInfo)
 				this.emit(
 					'debug',
-					`Device arrived: ${deviceInfo.name} (${deviceId}) - ${deviceInfo.hardwareInputs.length} inputs, ${deviceInfo.mixes.length} mixes, ${deviceInfo.outputs.length} outputs`,
+					`Device arrived: ${deviceInfo.model || 'unknown model'} class=${deviceInfo.deviceClass || 'unknown'} ` +
+						`serial=${deviceInfo.serial || 'unknown'} (devid ${deviceId}) - ` +
+						`${deviceInfo.hardwareInputs.length} inputs, ${deviceInfo.mixes.length} mixes, ${deviceInfo.outputs.length} outputs`,
 				)
 
 				// Auto-subscribe to device
@@ -650,6 +689,19 @@ export class FocusriteClient extends EventEmitter {
 						device.items.get(itemId).value = value
 					} else {
 						device.items.set(itemId, { id: itemId, value, name: itemId, type: 'unknown' })
+					}
+
+					// The nickname is the name the user sees in Focusrite Control.
+					// It arrives here rather than on the device element, so keep it
+					// on the device and let listeners refresh any derived naming.
+					if (device.nicknameItem && itemId === device.nicknameItem) {
+						const nickname = value || ''
+						// The server repeats the nickname in more than one update,
+						// so only announce a genuine change.
+						if (nickname !== device.nickname) {
+							device.nickname = nickname
+							this.emit('device-renamed', device)
+						}
 					}
 				}
 
