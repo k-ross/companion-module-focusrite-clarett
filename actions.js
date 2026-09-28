@@ -427,9 +427,19 @@ export function updateActions(self) {
 			],
 			callback: (event) => {
 				const ch = event.options.channel
-				// Use actual Air control ID from hardware inputs if available
 				const hwInput = self.hardwareInputs?.[ch - 1]
-				const itemId = hwInput?.air || `input-${ch}/air`
+				const itemId = hwInput?.air
+
+				// Only report what the device actually exposes. Falling back to a
+				// made-up item id sends a command the server discards in silence,
+				// which is indistinguishable from the module being broken. Plenty
+				// of supported models have no Air at all: on a Scarlett 18i20
+				// (2nd Gen), for one, the preamps are controlled on the front panel
+				// and report no software controls.
+				if (!itemId) {
+					self.log('warn', `No Air control for input ${event.options.channel} on this device`)
+					return
+				}
 
 				if (event.options.state === 'toggle') {
 					self.toggleValue(itemId)
