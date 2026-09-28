@@ -4,8 +4,8 @@
  * @author Linus Wileryd
  * @repository https://github.com/lnswlrd/companion-module-focusrite-clarett
  *
- * Protocol: XML messages with "Length=XXXXXX " prefix (6-digit uppercase hex)
- * Port: 49152 (localhost)
+ * Protocol: XML messages with "Length=XXXXXX " prefix (6-digit hex)
+ * Port: assigned from the ephemeral range, located at runtime by port-discovery.js
  *
  * ============================================
  * PROTOCOL REVERSE ENGINEERING SOURCES
@@ -37,6 +37,26 @@
 import { EventEmitter } from 'events'
 import net from 'net'
 import { parseStringPromise } from 'xml2js'
+
+/**
+ * Matches the frame header that prefixes every message on the wire:
+ * "Length=XXXXXX " where XXXXXX is the payload length in hex.
+ *
+ * The server replies in lowercase hex even though it accepts uppercase, so the
+ * character class has to cover both. Deliberately not a global regex, so it is
+ * safe to share between .test() and .match() callers.
+ */
+export const FRAME_HEADER_REGEX = /^Length=([0-9A-Fa-f]{6}) /
+
+/**
+ * Wrap an XML payload in the length-prefixed frame the server expects.
+ *
+ * @param {string} xml
+ * @returns {string}
+ */
+export function encodeMessage(xml) {
+	return `Length=${xml.length.toString(16).toUpperCase().padStart(6, '0')} ${xml}`
+}
 
 /**
  * Device classes this module knows how to drive.
@@ -184,8 +204,7 @@ export class FocusriteClient extends EventEmitter {
 		if (!this.socket || !this.connected) {
 			return false
 		}
-		const message = `Length=${xml.length.toString(16).toUpperCase().padStart(6, '0')} ${xml}`
-		this.socket.write(message)
+		this.socket.write(encodeMessage(xml))
 		return true
 	}
 
@@ -225,7 +244,7 @@ export class FocusriteClient extends EventEmitter {
 		// Parse messages: Length=XXXXXX <xml>
 		while (true) {
 			// Look for Length= prefix
-			const lengthMatch = this.buffer.match(/^Length=([0-9A-Fa-f]{6}) /)
+			const lengthMatch = this.buffer.match(FRAME_HEADER_REGEX)
 			if (!lengthMatch) break
 
 			const msgLength = parseInt(lengthMatch[1], 16)

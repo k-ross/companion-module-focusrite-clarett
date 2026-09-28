@@ -1,5 +1,6 @@
 import { InstanceBase, Regex, InstanceStatus } from '@companion-module/base'
 import { FocusriteClient, isSupportedDevice, SUPPORTED_DEVICE_CLASSES } from './focusrite-client.js'
+import { discoverPort, DEFAULT_PORT } from './port-discovery.js'
 import { updateActions } from './actions.js'
 import { updateFeedbacks } from './feedbacks.js'
 import { updateVariables } from './variables.js'
@@ -21,6 +22,12 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.config.clientId = `${section(8)}-${section(4)}-${section(4)}-${section(4)}-${section(12)}`
 			this.saveConfig(this.config)
 		}
+
+		// Lifecycle flags, checked by the long-running port scan so it gives up
+		// promptly when the instance is torn down or reconfigured underneath it.
+		this.destroyed = false
+		this.rediscovering = false
+		this.connectFailures = 0
 
 		// State storage
 		this.deviceId = null
@@ -44,12 +51,67 @@ export default class FocusriteClarettInstance extends InstanceBase {
 		await this.connectToServer()
 	}
 
+	/**
+	 * Work out which port FocusriteControlServer is on.
+	 *
+	 * The server takes an OS-assigned port from the ephemeral range rather than
+	 * binding a fixed one, and that port changes when the service restarts, so
+	 * unless the user has pinned a port we go and find it. The last port that
+	 * worked is tried first, which makes the common case a single probe.
+	 *
+	 * @returns {Promise<number>}
+	 */
+	async resolveServerPort() {
+		const host = this.config.host || '127.0.0.1'
+		const configuredPort = Number(this.config.port) || DEFAULT_PORT
+
+		// Only an explicit opt-out disables discovery, so installs upgraded from
+		// a version without the setting get it on.
+		if (this.config.autoDiscoverPort === false) {
+			return configuredPort
+		}
+
+		this.updateStatus(InstanceStatus.Connecting, 'Locating FocusriteControlServer...')
+
+		const preferredPorts = [this.config.discoveredPort, configuredPort].filter((port) => Number(port) > 0)
+
+		const found = await discoverPort({
+			host,
+			preferredPorts,
+			log: (message) => this.log('debug', message),
+			isCancelled: () => this.destroyed,
+		})
+
+		if (found === null) {
+			this.log(
+				'warn',
+				`Could not find FocusriteControlServer on ${host}. Falling back to port ${configuredPort}. ` +
+					`Check that Focusrite Control is installed and its Control Server service is running.`,
+			)
+			return configuredPort
+		}
+
+		if (Number(this.config.discoveredPort) !== found) {
+			this.log('info', `FocusriteControlServer found on ${host}:${found}`)
+			this.config.discoveredPort = found
+			this.saveConfig(this.config)
+		}
+
+		return found
+	}
+
 	async connectToServer() {
 		this.updateStatus(InstanceStatus.Connecting)
 
+		const host = this.config.host || '127.0.0.1'
+		const port = await this.resolveServerPort()
+		if (this.destroyed) return
+
+		this.activePort = port
+
 		this.client = new FocusriteClient({
-			host: this.config.host || '127.0.0.1',
-			port: this.config.port || 49152,
+			host,
+			port,
 			clientName: 'Companion-Focusrite',
 			clientId: this.config.clientId,
 		})
@@ -61,6 +123,7 @@ export default class FocusriteClarettInstance extends InstanceBase {
 
 		this.client.on('approved', () => {
 			this.log('info', 'Client approved by Focusrite Control')
+			this.connectFailures = 0
 			this.updateStatus(InstanceStatus.Ok)
 		})
 
@@ -71,6 +134,13 @@ export default class FocusriteClarettInstance extends InstanceBase {
 
 		this.client.on('error', (err) => {
 			this.log('error', `Connection error: ${err.message}`)
+			this.connectFailures++
+			// A server restart lands on a different port, so a port that has
+			// stopped answering is reason to go looking again rather than retry
+			// the old one forever.
+			if (this.connectFailures >= 3) {
+				void this.rediscoverServer()
+			}
 		})
 
 		this.client.on('debug', (msg) => {
@@ -157,6 +227,40 @@ export default class FocusriteClarettInstance extends InstanceBase {
 
 		// Already bound to something supported, so leave it alone.
 		return this.deviceId === null || this.deviceId === device.id
+	}
+
+	/**
+	 * Re-run port discovery after the current port stopped answering.
+	 *
+	 * Guarded so overlapping connection errors cannot start several scans.
+	 */
+	async rediscoverServer() {
+		if (this.destroyed || this.rediscovering) return
+		if (this.config.autoDiscoverPort === false) return
+
+		this.rediscovering = true
+		this.connectFailures = 0
+
+		try {
+			this.log('info', `Port ${this.activePort} stopped responding, searching for FocusriteControlServer again`)
+
+			// Forget the cached port so the scan cannot settle on the dead one.
+			if (this.config.discoveredPort) {
+				this.config.discoveredPort = null
+				this.saveConfig(this.config)
+			}
+
+			if (this.client) {
+				this.client.disconnect()
+				this.client = null
+			}
+
+			await this.connectToServer()
+		} catch (err) {
+			this.log('error', `Re-discovery failed: ${err.message}`)
+		} finally {
+			this.rediscovering = false
+		}
 	}
 
 	parseDeviceStructure() {
@@ -299,11 +403,31 @@ export default class FocusriteClarettInstance extends InstanceBase {
 				regex: Regex.IP,
 			},
 			{
+				type: 'checkbox',
+				id: 'autoDiscoverPort',
+				label: 'Auto-detect port',
+				width: 4,
+				default: true,
+			},
+			{
+				type: 'static-text',
+				id: 'portInfo',
+				width: 12,
+				label: '',
+				value:
+					'FocusriteControlServer does not use a fixed port. It takes one from the ephemeral range ' +
+					'(starting at ' +
+					DEFAULT_PORT +
+					') and picks a different one each time the service restarts, so leave auto-detect on unless ' +
+					'you have a reason to pin it. The port below is used as the starting guess when auto-detect ' +
+					'is on, and used as-is when it is off.',
+			},
+			{
 				type: 'number',
 				id: 'port',
 				label: 'Server Port',
 				width: 4,
-				default: 49152,
+				default: DEFAULT_PORT,
 				min: 1,
 				max: 65535,
 			},
@@ -313,10 +437,14 @@ export default class FocusriteClarettInstance extends InstanceBase {
 	async configUpdated(config) {
 		const hostChanged = this.config.host !== config.host
 		const portChanged = this.config.port !== config.port
+		const discoveryChanged = this.config.autoDiscoverPort !== config.autoDiscoverPort
 
 		this.config = config
 
-		if (hostChanged || portChanged) {
+		if (hostChanged || portChanged || discoveryChanged) {
+			// A new host or an explicitly pinned port makes the cached port stale.
+			this.config.discoveredPort = null
+			this.connectFailures = 0
 			if (this.client) {
 				this.client.disconnect()
 				this.client = null
@@ -326,6 +454,8 @@ export default class FocusriteClarettInstance extends InstanceBase {
 	}
 
 	async destroy() {
+		// Stops an in-flight port scan from continuing past teardown.
+		this.destroyed = true
 		if (this.client) {
 			this.client.disconnect()
 			this.client = null
