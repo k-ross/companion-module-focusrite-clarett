@@ -676,21 +676,46 @@ export class FocusriteClient extends EventEmitter {
 	 * Parse mixes with inputs (gain, pan, mute, solo)
 	 */
 	parseMixes(xml, deviceInfo) {
-		const mixRegex = /<mix[^>]+id="(\d+)"[^>]*name="([^"]*)"[^>]*>([\s\S]*?)<\/mix>/g
+		// A stereo mix is sent as two elements, left then right, distinguished the
+		// same way outputs are: the left half carries the pair name in
+		// stereo-name, the right half carries an empty one.
+		//
+		//   <mix id="58"  name="Mix A" stereo-name="Mix A">
+		//   <mix id="140" name="Mix A" stereo-name="">
+		//
+		// Only the left half is kept, since the two share their controls and
+		// listing both would offer the same mix twice under one name.
+		//
+		// Attributes are read individually and anchored on whitespace. A combined
+		// pattern with a greedy [^>]* between captures backtracks far enough that
+		// name=" matches inside stereo-name=", which silently returned the pair
+		// name for a left half and an empty string for a right half.
+		const mixRegex = /<mix\b([^>]*)>([\s\S]*?)<\/mix>/g
 		let mixMatch
 		while ((mixMatch = mixRegex.exec(xml)) !== null) {
-			const mixName = mixMatch[2]
-			if (!mixName || mixName.trim() === '') continue
+			const attrs = mixMatch[1]
+
+			const idMatch = attrs.match(/(?:^|\s)id="(\d+)"/)
+			if (!idMatch) continue
+
+			const mixName = attrs.match(/(?:^|\s)name="([^"]*)"/)?.[1] || ''
+			if (mixName.trim() === '') continue
+
+			// Present but empty means the right half of a pair. Absent means the
+			// mix stands alone, which is kept.
+			const stereoNameMatch = attrs.match(/stereo-name="([^"]*)"/)
+			if (stereoNameMatch && stereoNameMatch[1] === '') continue
 
 			const mix = {
-				id: mixMatch[1],
+				id: idMatch[1],
 				name: mixName,
+				stereoName: stereoNameMatch ? stereoNameMatch[1] : undefined,
 				inputs: [],
 			}
 
 			const inputRegex = /<input>([\s\S]*?)<\/input>/g
 			let inputMatch
-			const mixContent = mixMatch[3]
+			const mixContent = mixMatch[2]
 			while ((inputMatch = inputRegex.exec(mixContent)) !== null) {
 				const inputContent = inputMatch[1]
 				const gainMatch = inputContent.match(/<gain[^>]+id="(\d+)"/)
