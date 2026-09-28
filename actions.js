@@ -449,6 +449,50 @@ export function updateActions(self) {
 			},
 		},
 
+		set_pad: {
+			name: 'Pad (-10dB)',
+			options: [
+				{
+					id: 'channel',
+					type: 'number',
+					label: 'Input Channel',
+					default: 1,
+					min: 1,
+					max: 8,
+				},
+				{
+					id: 'state',
+					type: 'dropdown',
+					label: 'State',
+					choices: [
+						{ id: 'on', label: 'On' },
+						{ id: 'off', label: 'Off' },
+						{ id: 'toggle', label: 'Toggle' },
+					],
+					default: 'toggle',
+				},
+			],
+			callback: (event) => {
+				const ch = event.options.channel
+				const hwInput = self.hardwareInputs?.[ch - 1]
+				const itemId = hwInput?.pad
+
+				// Pad is commonly present on only some inputs. A Scarlett 18i8
+				// (3rd Gen) reports it on its four preamps and not on the four
+				// line inputs, so a missing control is normal rather than an error.
+				if (!itemId) {
+					self.log('warn', `No pad control for input ${event.options.channel} on this device`)
+					return
+				}
+
+				if (event.options.state === 'toggle') {
+					self.toggleValue(itemId)
+				} else {
+					self.setValue(itemId, event.options.state === 'on' ? 'true' : 'false')
+				}
+			},
+		},
+
 		set_mode: {
 			name: 'Input Mode (Mic/Line/Inst)',
 			options: [

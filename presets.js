@@ -93,6 +93,24 @@ export function getPresets(self) {
 		}
 	}
 
+	// ------------------------------------------------------------------ pad
+	const padChannels = channelsWith(hardwareInputs, 'pad')
+	for (const ch of padChannels) {
+		presets[`pad_${ch}`] = {
+			type: 'simple',
+			name: `Pad ${ch}`,
+			style: { text: `PAD\\nCH ${ch}`, size: '14', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'set_pad', options: { channel: ch, state: 'toggle' } }], up: [] }],
+			feedbacks: [
+				{
+					feedbackId: 'pad_enabled',
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(0, 102, 204), color: WHITE },
+				},
+			],
+		}
+	}
+
 	// ----------------------------------------------------------- input mode
 	const modeChannels = channelsWith(hardwareInputs, 'mode')
 	for (const ch of modeChannels) {
@@ -155,6 +173,11 @@ export function getPresets(self) {
 			'air',
 			'Air Mode',
 			airChannels.map((ch) => `air_${ch}`),
+		),
+		definition(
+			'pad',
+			'Pad',
+			padChannels.map((ch) => `pad_${ch}`),
 		),
 		definition(
 			'mode',

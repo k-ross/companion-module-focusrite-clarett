@@ -33,12 +33,14 @@ Both families expose the same control schema through FocusriteControlServer, so 
 
 ### Hardware Controls
 
-- **Phantom Power (48V)** - Enable/disable phantom power on inputs 1-8
-- **Pad (-10dB)** - Enable/disable input pad
 - **Air Mode** - Enable/disable Focusrite Air mode
-- **High Pass Filter** - Enable/disable HPF
-- **Phase Invert** - Invert input phase
+- **Pad (-10dB)** - Enable/disable the input pad
+- **Input Mode** - Set the input mode, where the device offers a choice
+- **Cycle Input Mode** - Step through the available modes
 - **Stereo Link** - Link adjacent inputs as stereo pair
+
+Which of these your device offers varies, often between inputs on the same
+device. An action warns instead of acting when the control is not there.
 
 ### Output Controls
 
@@ -61,14 +63,14 @@ All boolean controls have corresponding feedbacks for button states:
 
 - Input Muted (red)
 - Input Soloed (yellow)
-- Phantom Power Enabled (orange)
+- Air Mode Enabled (yellow)
 - Pad Enabled (blue)
-- Air Mode Enabled (cyan)
-- High Pass Filter Enabled (purple)
-- Phase Inverted (pink)
-- Dim Enabled (olive)
+- Mode is Mic / Line / Inst (red / dark red / pink)
+- Dim Enabled (dark orange)
 - Talkback Enabled (green)
 - Stereo Linked (dark green)
+- Output Muted (red)
+- Value Equals, for any control by item ID
 
 ## Presets
 
@@ -77,7 +79,8 @@ do something, and the channel counts match the device rather than a fixed eight:
 
 - Input mutes, one per mixer input that has a mute
 - Input solos, one per mixer input that has a solo
-- Air mode, only on devices that have Air
+- Air mode, one per input that has Air
+- Pad, one per input that has a pad
 - Input mode, only on devices with switchable Mic/Line/Inst inputs
 - Dim, when the device has a monitoring section
 

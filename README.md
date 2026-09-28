@@ -46,11 +46,11 @@ Available controls depend on what the interface itself offers. A device that has
 
 ## Configuration
 
-| Setting          | Default     | Description                                                                                                                    |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Server Host      | `127.0.0.1` | IP address or hostname of the computer running FocusriteControlServer                                                          |
-| Auto-detect port | on          | Find FocusriteControlServer automatically. Leave this on unless you have a reason to pin the port                              |
-| Server Port      | `49152`     | Starting guess when auto-detect is on, and the exact port used when it is off                                                  |
+| Setting          | Default     | Description                                                                                       |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| Server Host      | `127.0.0.1` | IP address or hostname of the computer running FocusriteControlServer                             |
+| Auto-detect port | on          | Find FocusriteControlServer automatically. Leave this on unless you have a reason to pin the port |
+| Server Port      | `49152`     | Starting guess when auto-detect is on, and the exact port used when it is off                     |
 
 If Companion runs on the **same machine** as the Clarett interface, leave the host as `127.0.0.1`. If Companion runs on a **separate machine** (e.g. a dedicated show-control PC), enter the IP address of the computer the interface is connected to. Note that FocusriteControlServer listens on all interfaces by default, so remote connections should work as long as the firewall allows port 49152.
 
@@ -89,11 +89,14 @@ This only needs to be done once.
 | Action               | Description                              |
 | -------------------- | ---------------------------------------- |
 | **Air Mode**         | Toggle/on/off Focusrite Air mode         |
+| **Pad (-10dB)**      | Toggle/on/off the input pad              |
 | **Input Mode**       | Set Mic / Line / Instrument mode         |
 | **Cycle Input Mode** | Step through available modes             |
 | **Stereo Link**      | Toggle stereo linking of adjacent inputs |
 
-> **Note:** Phantom power (48V), pad, HPF, phase invert and input gain are hardware-locked on the Clarett 8PreX and cannot be controlled via software. Which of these are controllable varies by model; the module only offers what the connected device reports.
+> **Note:** Which of these a device offers varies widely, often within one device. A Scarlett 18i8 (3rd Gen) reports Air and pad on its four preamps but input mode on only two of them, while a Clarett 8PreX controls its preamps in hardware and offers none. Actions warn rather than acting when the control is absent, and presets are only generated for controls the device reports.
+>
+> Phantom power (48V), high pass filter and phase invert are recognised by the protocol parser but have no actions yet, because no device tested so far reports them.
 
 ### Output / Monitor
 
@@ -120,6 +123,7 @@ All controls have boolean feedback for button styling:
 | Input Muted               | 🔴 Red                |
 | Input Soloed              | 🟡 Yellow             |
 | Air Mode Enabled          | 🟡 Yellow             |
+| Pad Enabled               | 🔵 Blue               |
 | Dim Enabled               | 🟠 Dark orange        |
 | Talkback Enabled          | 🟢 Green              |
 | Stereo Linked             | 🟢 Dark green         |
@@ -137,13 +141,16 @@ device rather than a fixed eight.
 | Input mutes                           | the first mix has inputs with a mute control  |
 | Input solos                           | the first mix has inputs with a solo control  |
 | Air mode                              | the device reports an Air control on an input |
+| Pad                                   | the device reports a pad control on an input  |
 | Input mode (cycles Mic → Line → Inst) | the device reports a mode control on an input |
 | Dim                                   | the device has a monitoring section with dim  |
 
-A group that would be empty is left out entirely. On a Scarlett 18i20 (2nd Gen),
-for example, the preamps are controlled from the front panel and no Air or input
-mode presets appear, while its mixer yields eighteen mute and eighteen solo
-buttons.
+A group that would be empty is left out entirely, and a control present on only
+some inputs produces buttons for just those channels. A Scarlett 18i8 (3rd Gen)
+reports Air and pad on four inputs and mode on two, so it yields four Air, four
+pad and two mode buttons. A Scarlett 18i20 (2nd Gen) controls its preamps from
+the front panel and gets none of them, while its mixer yields eighteen mute and
+eighteen solo buttons.
 
 Talkback has no preset because the action needs an item ID that varies per
 device and cannot be guessed. Add it as an action and supply the ID.
