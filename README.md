@@ -75,6 +75,10 @@ This only needs to be done once.
 
 ## Actions
 
+Channel, mix and output fields are dropdowns naming what the device reports, rather than bare numbers. Mixes appear as the device names them, such as `Mix A`. Hardware inputs appear as `Analogue 1` and so on, and an action for Air, pad or input mode lists only the inputs that actually have that control. A mixer input is named after the source assigned to it, since a slot has no name of its own, and an unassigned slot says so. Reassigning a source in Focusrite Control relabels the dropdown without a reconnect.
+
+Buttons configured against the previous numeric fields keep working, because the underlying values are unchanged.
+
 ### Input / Mixer
 
 | Action         | Description                                     |

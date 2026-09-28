@@ -4,39 +4,18 @@
  * Control actions for mixer inputs, outputs, routing, and hardware controls
  */
 
-import { outputControl, outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
+import { outputControl, outputFromMuteChoice, outputMuteItem } from './output-controls.js'
+import {
+	dropdownOption,
+	hardwareInputChoicesWith,
+	mixChoices,
+	mixerInputChoices,
+	outputPairChoices,
+	outputChoices,
+	stereoLinkChoices,
+} from './choices.js'
 
 export function updateActions(self) {
-	// Build dynamic choices from device items
-	const inputChoices = []
-	const outputChoices = []
-	const itemChoices = []
-
-	if (self.items) {
-		for (const [itemId, item] of self.items) {
-			itemChoices.push({ id: itemId, label: item.name || itemId })
-
-			if (itemId.includes('input') || itemId.includes('mic') || itemId.includes('line-in')) {
-				inputChoices.push({ id: itemId, label: item.name || itemId })
-			}
-			if (itemId.includes('output') || itemId.includes('line-out') || itemId.includes('monitor')) {
-				outputChoices.push({ id: itemId, label: item.name || itemId })
-			}
-		}
-	}
-
-	// Default choices if no device connected
-	if (inputChoices.length === 0) {
-		for (let i = 1; i <= 8; i++) {
-			inputChoices.push({ id: `input-${i}`, label: `Input ${i}` })
-		}
-	}
-	if (outputChoices.length === 0) {
-		for (let i = 1; i <= 10; i++) {
-			outputChoices.push({ id: `output-${i}`, label: `Output ${i}` })
-		}
-	}
-
 	self.setActionDefinitions({
 		// ============================================
 		// MUTE CONTROLS
@@ -44,22 +23,8 @@ export function updateActions(self) {
 		mute_input: {
 			name: 'Mute Input',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (only Custom Mix-enabled outputs)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -73,8 +38,8 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
-				const mixIdx = event.options.mix - 1
+				const ch = Number(event.options.channel) - 1
+				const mixIdx = Number(event.options.mix) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.mute
@@ -95,13 +60,7 @@ export function updateActions(self) {
 		mute_output: {
 			name: 'Mute Output',
 			options: [
-				{
-					id: 'channel',
-					type: 'dropdown',
-					label: 'Output',
-					choices: outputMuteChoices(self.outputs, self.items),
-					default: '0',
-				},
+				dropdownOption('channel', 'Output', outputPairChoices(self)),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -137,22 +96,8 @@ export function updateActions(self) {
 		solo_input: {
 			name: 'Solo Input',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (only Custom Mix-enabled outputs)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -166,8 +111,8 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
-				const mixIdx = event.options.mix - 1
+				const ch = Number(event.options.channel) - 1
+				const mixIdx = Number(event.options.mix) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.solo
@@ -191,22 +136,8 @@ export function updateActions(self) {
 		set_fader: {
 			name: 'Set Mixer Fader',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (only Custom Mix-enabled outputs)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 				{
 					id: 'level',
 					type: 'number',
@@ -217,8 +148,8 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
-				const mixIdx = event.options.mix - 1
+				const ch = Number(event.options.channel) - 1
+				const mixIdx = Number(event.options.mix) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.gain
@@ -235,14 +166,7 @@ export function updateActions(self) {
 		set_output_volume: {
 			name: 'Set Output Volume',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Output Channel',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Output', outputChoices(self)),
 				{
 					id: 'level',
 					type: 'number',
@@ -253,7 +177,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
+				const ch = Number(event.options.channel) - 1
 				const output = self.outputs?.[ch]
 				// A right channel follows its left partner only while the pair is
 				// linked. Unlinked, it has a volume of its own.
@@ -271,22 +195,8 @@ export function updateActions(self) {
 		adjust_fader: {
 			name: 'Adjust Mixer Fader (relative)',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 				{
 					id: 'step',
 					type: 'number',
@@ -297,8 +207,8 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
-				const mixIdx = event.options.mix - 1
+				const ch = Number(event.options.channel) - 1
+				const mixIdx = Number(event.options.mix) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.gain
@@ -317,14 +227,7 @@ export function updateActions(self) {
 		adjust_output_volume: {
 			name: 'Adjust Output Volume (relative)',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Output Channel',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Output', outputChoices(self)),
 				{
 					id: 'step',
 					type: 'number',
@@ -335,7 +238,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
+				const ch = Number(event.options.channel) - 1
 				const output = self.outputs?.[ch]
 				// A right channel follows its left partner only while the pair is
 				// linked. Unlinked, it has a volume of its own.
@@ -358,22 +261,8 @@ export function updateActions(self) {
 		set_pan: {
 			name: 'Set Pan',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (only Custom Mix-enabled outputs)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 				{
 					id: 'pan',
 					type: 'number',
@@ -384,8 +273,8 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel - 1
-				const mixIdx = event.options.mix - 1
+				const ch = Number(event.options.channel) - 1
+				const mixIdx = Number(event.options.mix) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.pan
@@ -408,14 +297,7 @@ export function updateActions(self) {
 		set_air: {
 			name: 'Air Mode',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
+				dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'air')),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -429,7 +311,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel
+				const ch = Number(event.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.air
 
@@ -455,14 +337,7 @@ export function updateActions(self) {
 		set_pad: {
 			name: 'Pad (-10dB)',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
+				dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'pad')),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -476,7 +351,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel
+				const ch = Number(event.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.pad
 
@@ -499,14 +374,7 @@ export function updateActions(self) {
 		set_mode: {
 			name: 'Input Mode (Mic/Line/Inst)',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
+				dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'mode')),
 				{
 					id: 'mode',
 					type: 'dropdown',
@@ -520,7 +388,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel
+				const ch = Number(event.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 
 				if (!hwInput?.mode) {
@@ -543,18 +411,9 @@ export function updateActions(self) {
 
 		cycle_mode: {
 			name: 'Cycle Input Mode',
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'mode'))],
 			callback: (event) => {
-				const ch = event.options.channel
+				const ch = Number(event.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 
 				if (!hwInput?.mode) {
@@ -647,14 +506,7 @@ export function updateActions(self) {
 		set_stereo_link: {
 			name: 'Stereo Link',
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel (odd number, 1-7)',
-					default: 1,
-					min: 1,
-					max: 7,
-				},
+				dropdownOption('channel', 'Stereo Pair', stereoLinkChoices(self)),
 				{
 					id: 'state',
 					type: 'dropdown',
@@ -668,7 +520,7 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const ch = event.options.channel
+				const ch = Number(event.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.stereo
 

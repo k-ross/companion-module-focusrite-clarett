@@ -5,7 +5,16 @@
  */
 
 import { combineRgb } from '@companion-module/base'
-import { outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
+import { outputFromMuteChoice, outputMuteItem } from './output-controls.js'
+
+import {
+	dropdownOption,
+	hardwareInputChoicesWith,
+	mixChoices,
+	mixerInputChoices,
+	outputPairChoices,
+	stereoLinkChoices,
+} from './choices.js'
 
 export function updateFeedbacks(self) {
 	self.setFeedbackDefinitions({
@@ -21,26 +30,12 @@ export function updateFeedbacks(self) {
 				color: combineRgb(255, 255, 255),
 			},
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (1=first)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 			],
 			callback: (feedback) => {
-				const ch = feedback.options.channel - 1
-				const mixIdx = (feedback.options.mix || 1) - 1
+				const ch = Number(feedback.options.channel) - 1
+				const mixIdx = Number(feedback.options.mix || 1) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.mute
@@ -58,15 +53,7 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(255, 0, 0),
 				color: combineRgb(255, 255, 255),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'dropdown',
-					label: 'Output',
-					choices: outputMuteChoices(self.outputs, self.items),
-					default: '0',
-				},
-			],
+			options: [dropdownOption('channel', 'Output', outputPairChoices(self))],
 			callback: (feedback) => {
 				const output = outputFromMuteChoice(self.outputs, feedback.options.channel)
 				const itemId = outputMuteItem(self.outputs, self.items, self.monitoring, output)
@@ -88,26 +75,12 @@ export function updateFeedbacks(self) {
 				color: combineRgb(0, 0, 0),
 			},
 			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 30,
-				},
-				{
-					id: 'mix',
-					type: 'number',
-					label: 'Mix (1=first)',
-					default: 1,
-					min: 1,
-					max: 10,
-				},
+				dropdownOption('channel', 'Mixer Input', mixerInputChoices(self)),
+				dropdownOption('mix', 'Mix', mixChoices(self)),
 			],
 			callback: (feedback) => {
-				const ch = feedback.options.channel - 1
-				const mixIdx = (feedback.options.mix || 1) - 1
+				const ch = Number(feedback.options.channel) - 1
+				const mixIdx = Number(feedback.options.mix || 1) - 1
 				const mix = self.mixes?.[mixIdx]
 				const input = mix?.inputs?.[ch]
 				const itemId = input?.solo
@@ -128,18 +101,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(255, 204, 0), // Yellow like Clarett LED
 				color: combineRgb(0, 0, 0),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'air'))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				// Use actual Air control ID from hardware inputs if available
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.air
@@ -157,18 +121,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(0, 102, 204), // Blue
 				color: combineRgb(255, 255, 255),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'pad'))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.pad
 				if (!itemId) return false
@@ -188,18 +143,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(255, 0, 0), // Bright red
 				color: combineRgb(255, 255, 255),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'mode'))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				if (!hwInput?.mode) return false
 				const item = self.items.get(hwInput.mode)
@@ -215,18 +161,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(102, 0, 0), // Dark red
 				color: combineRgb(255, 255, 255),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 8,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'mode'))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				if (!hwInput?.mode) return false
 				const item = self.items.get(hwInput.mode)
@@ -242,18 +179,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(255, 102, 170), // Pink
 				color: combineRgb(0, 0, 0),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel',
-					default: 1,
-					min: 1,
-					max: 2,
-				},
-			],
+			options: [dropdownOption('channel', 'Input', hardwareInputChoicesWith(self, 'mode'))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				if (!hwInput?.mode) return false
 				const item = self.items.get(hwInput.mode)
@@ -316,18 +244,9 @@ export function updateFeedbacks(self) {
 				bgcolor: combineRgb(0, 128, 0),
 				color: combineRgb(255, 255, 255),
 			},
-			options: [
-				{
-					id: 'channel',
-					type: 'number',
-					label: 'Input Channel (odd)',
-					default: 1,
-					min: 1,
-					max: 7,
-				},
-			],
+			options: [dropdownOption('channel', 'Stereo Pair', stereoLinkChoices(self))],
 			callback: (feedback) => {
-				const ch = feedback.options.channel
+				const ch = Number(feedback.options.channel)
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.stereo
 				if (!itemId) return false

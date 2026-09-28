@@ -305,10 +305,11 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.items.set(itemId, { id: itemId, value: value })
 		}
 
-		// Toggling STEREO in Focusrite Control changes how an output pair is
-		// listed, "Line Outputs 3-4" versus the two channels on their own, so
-		// rebuild the definitions that list them.
-		if ((this.outputs || []).some((output) => output.stereo === itemId)) {
+		// Dropdown labels depend on routing. A mixer input is named after the
+		// source assigned to it, and an output pair is listed as one entry or
+		// two depending on its STEREO setting, so a change to either would leave
+		// the UI describing the old routing. Rebuild the definitions instead.
+		if (this.isInputSourceItem(itemId) || (this.outputs || []).some((output) => output.stereo === itemId)) {
 			this.updateActions()
 			this.updateFeedbacks()
 		}
@@ -321,6 +322,16 @@ export default class FocusriteClarettInstance extends InstanceBase {
 
 		// Check feedbacks
 		this.checkAllFeedbacks()
+	}
+
+	/**
+	 * Whether an item is one of the mixer's input source selectors.
+	 *
+	 * @param {string} itemId
+	 * @returns {boolean}
+	 */
+	isInputSourceItem(itemId) {
+		return (this.inputSourceControls || []).some((control) => control.id === itemId)
 	}
 
 	updateHardwareInputVariable(itemId, value) {
