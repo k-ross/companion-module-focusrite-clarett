@@ -44,8 +44,8 @@ export default class FocusriteClarettInstance extends InstanceBase {
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
-		const { structure: presetStructure, presets: presetDefs } = getPresets()
-		this.setPresetDefinitions(presetStructure, presetDefs)
+		// Empty until a device arrives, since presets follow what it reports.
+		this.updatePresets()
 
 		// Connect to Focusrite Control Server
 		await this.connectToServer()
@@ -192,6 +192,7 @@ export default class FocusriteClarettInstance extends InstanceBase {
 				this.updateVariableValues()
 				this.updateActions()
 				this.updateFeedbacks()
+				this.updatePresets()
 				this.checkAllFeedbacks()
 			}
 		})
@@ -480,6 +481,17 @@ export default class FocusriteClarettInstance extends InstanceBase {
 
 	updateFeedbacks() {
 		updateFeedbacks(this)
+	}
+
+	/**
+	 * Rebuild the preset palette from the connected device.
+	 *
+	 * Called once at startup, when nothing is known and the palette is empty,
+	 * and again whenever a device arrives and its structure has been parsed.
+	 */
+	updatePresets() {
+		const { structure, presets } = getPresets(this)
+		this.setPresetDefinitions(structure, presets)
 	}
 
 	updateVariableDefinitions() {

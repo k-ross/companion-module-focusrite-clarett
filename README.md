@@ -128,14 +128,25 @@ All controls have boolean feedback for button styling:
 
 ## Presets
 
-Ready-to-use button presets are included for channels 1–8:
+Presets are generated from what the connected device reports, so you are only
+offered buttons that do something on your interface. Channel counts follow the
+device rather than a fixed eight.
 
-- Input mutes
-- Input solos
-- Air mode
-- Input mode (cycles Mic → Line → Inst)
-- Dim (monitor output)
-- Talkback (momentary)
+| Preset                                | Offered when                                  |
+| ------------------------------------- | --------------------------------------------- |
+| Input mutes                           | the first mix has inputs with a mute control  |
+| Input solos                           | the first mix has inputs with a solo control  |
+| Air mode                              | the device reports an Air control on an input |
+| Input mode (cycles Mic → Line → Inst) | the device reports a mode control on an input |
+| Dim                                   | the device has a monitoring section with dim  |
+
+A group that would be empty is left out entirely. On a Scarlett 18i20 (2nd Gen),
+for example, the preamps are controlled from the front panel and no Air or input
+mode presets appear, while its mixer yields eighteen mute and eighteen solo
+buttons.
+
+Talkback has no preset because the action needs an item ID that varies per
+device and cannot be guessed. Add it as an action and supply the ID.
 
 ## Variables
 

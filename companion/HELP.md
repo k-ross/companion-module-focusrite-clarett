@@ -72,16 +72,21 @@ All boolean controls have corresponding feedbacks for button states:
 
 ## Presets
 
-Pre-configured button presets are available for:
+Presets are built from what your device reports, so you only get buttons that
+do something, and the channel counts match the device rather than a fixed eight:
 
-- Input mutes (1-8)
-- Input solos (1-8)
-- Phantom power (1-8)
-- Air mode (1-8)
-- Pad (1-8)
-- HPF (1-8)
-- Dim
-- Talkback (momentary)
+- Input mutes, one per mixer input that has a mute
+- Input solos, one per mixer input that has a solo
+- Air mode, only on devices that have Air
+- Input mode, only on devices with switchable Mic/Line/Inst inputs
+- Dim, when the device has a monitoring section
+
+If a group would be empty it is left out. Many interfaces control their preamps
+from the front panel and report no Air or input mode at all, so seeing fewer
+groups than you expected usually reflects the hardware rather than a fault.
+
+Talkback has no preset: the action needs an item ID that differs between
+devices. Add the action manually and supply the ID.
 
 ## Variables
 
