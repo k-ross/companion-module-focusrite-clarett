@@ -1,17 +1,21 @@
-# Focusrite Clarett Module
+# Focusrite Clarett / Scarlett Module
 
-Control your Focusrite Clarett audio interface directly from Companion without using Focusrite Control's GUI.
+Control your Focusrite Clarett or Scarlett audio interface directly from Companion without using Focusrite Control's GUI.
+
+Both families expose the same control schema through FocusriteControlServer, so the same actions work for either. Which controls are available depends on the model: the module only offers what the connected device reports.
+
+4th generation Scarlett interfaces are managed by Focusrite Control 2, which uses a different protocol, and are not supported.
 
 ## Requirements
 
 - **Focusrite Control** software must be installed (but does not need to be running)
-- **FocusriteControlServer** service must be running (automatically starts with macOS)
-- Clarett interface connected via Thunderbolt
+- **FocusriteControlServer** service must be running (it starts automatically on macOS and Windows)
+- Interface connected to that same computer via Thunderbolt or USB
 
 ## Setup
 
-1. Add the Focusrite Clarett module in Companion
-2. Configure the connection (default: localhost:49152)
+1. Add the module in Companion
+2. Set **Server Host**, or leave it at `127.0.0.1` when Companion runs on the same computer as the interface. Leave **Auto-detect port** on
 3. **Important:** When you first connect, you need to approve the connection in Focusrite Control:
    - Open Focusrite Control
    - A popup will appear asking to approve "Companion-Focusrite"
@@ -20,6 +24,7 @@ Control your Focusrite Clarett audio interface directly from Companion without u
 ## Actions
 
 ### Input Controls
+
 - **Mute Input** - Mute/unmute mixer inputs (1-18)
 - **Solo Input** - Solo/unsolo mixer inputs
 - **Set Input Gain** - Set preamp gain (0-65535)
@@ -27,6 +32,7 @@ Control your Focusrite Clarett audio interface directly from Companion without u
 - **Set Pan** - Set pan position (-100 to 100)
 
 ### Hardware Controls
+
 - **Phantom Power (48V)** - Enable/disable phantom power on inputs 1-8
 - **Pad (-10dB)** - Enable/disable input pad
 - **Air Mode** - Enable/disable Focusrite Air mode
@@ -35,14 +41,17 @@ Control your Focusrite Clarett audio interface directly from Companion without u
 - **Stereo Link** - Link adjacent inputs as stereo pair
 
 ### Output Controls
+
 - **Mute Output** - Mute/unmute outputs
 - **Set Output Volume** - Set output level (0-65535)
 
 ### Monitor Controls
+
 - **Dim Output** - Toggle dim mode
 - **Talkback** - Activate talkback (momentary or toggle)
 
 ### Advanced
+
 - **Set Raw Value** - Send any control value by item ID
 - **Toggle Raw Value** - Toggle any boolean control
 
@@ -78,7 +87,7 @@ Pre-configured button presets are available for:
 
 The module exposes variables for:
 
-- Device name and model
+- Device nickname, model, family and serial number
 - Connection status
 - Input gains and states
 - Output volumes
@@ -87,22 +96,42 @@ The module exposes variables for:
 ## Troubleshooting
 
 ### "Waiting for approval..."
+
 Open Focusrite Control and approve the Companion connection.
 
-### "Connection refused"
-Make sure FocusriteControlServer is running:
+### "Connection refused" or no server found
+
+FocusriteControlServer does not use a fixed port. It takes an OS-assigned port from the ephemeral range starting at `49152`, and takes a different one each time the service restarts, which is why a hard-coded port is unreliable. With **Auto-detect port** on, the module finds it for you and searches again if the port stops answering.
+
+If it still cannot connect, check the service is actually running.
+
+On Windows:
+
+```bash
+sc query "Focusrite Control Server"
+```
+
+On macOS or Linux:
+
 ```bash
 ps aux | grep -i focusrite
 ```
 
+When Companion runs on a different computer from the interface, also check that the host is reachable and the firewall allows the connection. Auto-detect has to probe a range of ports, so a firewall that silently drops packets will make it slow; pin the port instead in that case.
+
+### Wrong device picked up
+
+With several interfaces connected, the module uses the first supported one. The `device_model`, `device_class` and `device_serial` variables show which one it bound to.
+
 ### Controls not working
-The item IDs may differ between Clarett models. Use the "Set Raw Value" action with debug logging to discover the correct IDs for your device.
+
+The item IDs differ between models. Use the "Set Raw Value" action with debug logging to discover the correct IDs for your device.
 
 ## Protocol
 
 This module communicates with the FocusriteControlServer using TCP/XML protocol:
 
-- **Port:** 49152 (configurable)
+- **Port:** assigned from the ephemeral range, discovered automatically (can be pinned)
 - **Message format:** `Length=XXXXXX <xml-content>` (Length PREFIX with space)
 
 ## Acknowledgments
