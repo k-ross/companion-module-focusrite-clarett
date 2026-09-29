@@ -23,7 +23,7 @@ Both families expose the same control schema through FocusriteControlServer, so 
 
 ## Actions
 
-Channels, mixes and outputs are chosen from dropdowns showing the names your device reports, not bare numbers. Mixer inputs are named after whatever source is assigned to them, so a slot with nothing routed to it reads as unassigned until you assign something in Focusrite Control. Air, pad and input mode only offer the inputs that have those controls.
+Channels, mixes and outputs are chosen from dropdowns showing the names your device reports, not bare numbers. A mix is labelled with the output it feeds, for instance `Mix A (Monitor Outputs 1-2)`, so you can tell them apart without remembering the routing. A mix that is not currently feeding an output shows just its name. Mixer inputs are named after whatever source is assigned to them, so a slot with nothing routed to it reads as unassigned until you assign something in Focusrite Control. Air, pad and input mode only offer the inputs that have those controls.
 
 ### Input Controls
 

@@ -306,10 +306,10 @@ export default class FocusriteClarettInstance extends InstanceBase {
 		}
 
 		// Dropdown labels depend on routing. A mixer input is named after the
-		// source assigned to it, and an output pair is listed as one entry or
-		// two depending on its STEREO setting, so a change to either would leave
-		// the UI describing the old routing. Rebuild the definitions instead.
-		if (this.isInputSourceItem(itemId) || (this.outputs || []).some((output) => output.stereo === itemId)) {
+		// source assigned to it, a mix after the outputs it feeds, and an output
+		// pair is listed as one entry or two depending on its STEREO setting.
+		// Rebuild the definitions so the UI never describes the old routing.
+		if (this.isRoutingItem(itemId)) {
 			this.updateActions()
 			this.updateFeedbacks()
 		}
@@ -325,13 +325,18 @@ export default class FocusriteClarettInstance extends InstanceBase {
 	}
 
 	/**
-	 * Whether an item is one of the mixer's input source selectors.
+	 * Whether an item is a routing selector that dropdown labels depend on.
+	 *
+	 * Covers the mixer's input source selectors, which name mixer inputs, and
+	 * each output's source and stereo link items, which name mixes and decide
+	 * whether a pair is listed as one output or two.
 	 *
 	 * @param {string} itemId
 	 * @returns {boolean}
 	 */
-	isInputSourceItem(itemId) {
-		return (this.inputSourceControls || []).some((control) => control.id === itemId)
+	isRoutingItem(itemId) {
+		if ((this.inputSourceControls || []).some((control) => control.id === itemId)) return true
+		return (this.outputs || []).some((output) => output.source === itemId || output.stereo === itemId)
 	}
 
 	updateHardwareInputVariable(itemId, value) {

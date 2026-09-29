@@ -16,7 +16,7 @@
  * to a generic numbered list of the same length the old number fields allowed.
  */
 
-import { outputMuteChoices } from './output-controls.js'
+import { isStereoLinked, outputMuteChoices } from './output-controls.js'
 
 /** Sizes of the fallback lists, matching the old number field maxima. */
 const FALLBACK_MIXER_INPUTS = 30
@@ -64,12 +64,65 @@ export function mixerInputChoices(self) {
 	return choices
 }
 
-/** Mixes, named as the device names them, e.g. "Mix A". */
+/**
+ * Outputs currently fed by a given mix, named as the device names them.
+ *
+ * An output's source item holds the id of whatever feeds it, and for a mix
+ * output that is the mix's own id. A linked pair is named as the pair, so a mix
+ * driving it reads "Monitor Outputs 1-2" rather than "Monitor Output 1".
+ *
+ * An unlinked output is named on its own. Every left channel carries its pair's
+ * name whether or not the pair is linked, so that name is only used while the
+ * link item says the pair really is one. Otherwise a mix feeding just Line
+ * Output 3 would claim "Line Outputs 3-4", and a second mix feeding Line Output 4
+ * would appear to share it.
+ *
+ * @returns {string[]} Output names, in the order the device lists them.
+ */
+function mixOutputNames(self, mixId) {
+	const names = []
+	for (const output of self?.outputs || []) {
+		if (!output.source) continue
+		const fedBy = self.items?.get(output.source)?.value
+		if (fedBy === undefined || fedBy === null) continue
+		if (String(fedBy) !== String(mixId)) continue
+
+		const linked = output.stereoName && isStereoLinked(self.outputs, self.items, output)
+		const name = linked ? output.stereoName : output.name
+		if (name && !names.includes(name)) names.push(name)
+	}
+	return names
+}
+
+/**
+ * Mixes, named by where they go rather than only by their own name.
+ *
+ * "Mix A" on its own says nothing about what it feeds, which is usually the
+ * thing you actually want to pick. Where the routing is known the destination is
+ * appended, giving "Mix A (Monitor Outputs 1-2)". A mix that currently feeds
+ * nothing keeps its plain name, and routing changes relabel it.
+ */
 export function mixChoices(self) {
 	const mixes = self?.mixes || []
 	if (mixes.length === 0) return numberedChoices(FALLBACK_MIXES, 'Mix')
 
-	return mixes.map((mix, i) => ({ id: i + 1, label: mix.name || `Mix ${i + 1}` }))
+	return mixes.map((mix, i) => {
+		const base = mix.name || `Mix ${i + 1}`
+		const outputs = mixOutputNames(self, mix.id)
+
+		let label = base
+		if (outputs.length === 1) {
+			label = `${base} (${outputs[0]})`
+		} else if (outputs.length > 1) {
+			// Several outputs can take the same mix. Name the first couple and
+			// count the rest, so the label stays readable.
+			const shown = outputs.slice(0, 2).join(', ')
+			const rest = outputs.length - 2
+			label = rest > 0 ? `${base} (${shown} +${rest} more)` : `${base} (${shown})`
+		}
+
+		return { id: i + 1, label }
+	})
 }
 
 /** Hardware (preamp) inputs, named as the device names them, e.g. "Analogue 1". */

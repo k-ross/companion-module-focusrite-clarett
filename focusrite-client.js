@@ -620,6 +620,13 @@ export class FocusriteClient extends EventEmitter {
 			const muteMatch = content.match(/<mute[^>]+id="(\d+)"/)
 			if (muteMatch) output.mute = muteMatch[1]
 
+			// The source item's value is the id of whatever feeds this output,
+			// which for a mix output is the mix's own id. That is the only link
+			// from a mix back to the outputs it drives, so a mix can be described
+			// by where it goes rather than just as "Mix A".
+			const sourceMatch = content.match(/<source[^>]+id="(\d+)"/)
+			if (sourceMatch) output.source = sourceMatch[1]
+
 			// Whether the pair is linked is its own item, toggled by the STEREO
 			// button in Focusrite Control. Every channel keeps its own volume and
 			// mute; output-controls.js decides at use time whether the pair's left
