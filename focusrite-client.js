@@ -590,8 +590,9 @@ export class FocusriteClient extends EventEmitter {
 		const outputElementRegex = /<([\w-]+)([^>]*)>([\s\S]*?)<\/\1>/g
 		let match
 		let index = 0
-		let lastStereoPairMute = null
-		let lastStereoPairVolume = null
+		// Position in deviceInfo.outputs of the most recent left channel, so the
+		// right channel that follows can be paired with it.
+		let lastLeftPosition = null
 		while ((match = outputElementRegex.exec(outXml)) !== null) {
 			const attrs = match[2]
 			const content = match[3]
@@ -619,16 +620,28 @@ export class FocusriteClient extends EventEmitter {
 			const muteMatch = content.match(/<mute[^>]+id="(\d+)"/)
 			if (muteMatch) output.mute = muteMatch[1]
 
-			// Route right channel to left channel's controls (server ignores right channel)
-			if (isRightChannel) {
-				if (lastStereoPairMute) output.mute = lastStereoPairMute
-				if (lastStereoPairVolume) output.volume = lastStereoPairVolume
-			} else {
-				lastStereoPairMute = output.mute || null
-				lastStereoPairVolume = output.volume || null
+			// Whether the pair is linked is its own item, toggled by the STEREO
+			// button in Focusrite Control. Every channel keeps its own volume and
+			// mute; output-controls.js decides at use time whether the pair's left
+			// channel should drive it instead, since the link can change at any
+			// time and the server ignores a right channel's own items only while
+			// linked.
+			const stereoMatch = content.match(/<stereo[^>]+id="(\d+)"/)
+			if (stereoMatch) output.stereo = stereoMatch[1]
+
+			if (!output.volume && !output.mute) continue
+
+			const position = deviceInfo.outputs.length
+			if (isRightChannel && lastLeftPosition !== null) {
+				output.isRight = true
+				output.partner = lastLeftPosition
+				deviceInfo.outputs[lastLeftPosition].partner = position
+				lastLeftPosition = null
+			} else if (!isRightChannel) {
+				lastLeftPosition = position
 			}
 
-			if (output.volume || output.mute) deviceInfo.outputs.push(output)
+			deviceInfo.outputs.push(output)
 		}
 	}
 

@@ -44,7 +44,7 @@ device. An action warns instead of acting when the control is not there.
 
 ### Output Controls
 
-- **Mute Output** - Mute/unmute outputs
+- **Mute Output** - Mute/unmute outputs. Linked stereo pairs are listed as one pair, and unlinked channels individually, matching the STEREO setting in Focusrite Control
 - **Set Output Volume** - Set output level (0-65535)
 
 ### Monitor Controls

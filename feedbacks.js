@@ -5,6 +5,7 @@
  */
 
 import { combineRgb } from '@companion-module/base'
+import { outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
 
 export function updateFeedbacks(self) {
 	self.setFeedbackDefinitions({
@@ -61,17 +62,14 @@ export function updateFeedbacks(self) {
 				{
 					id: 'channel',
 					type: 'dropdown',
-					label: 'Output Pair',
-					choices: (self.outputs || [])
-						.filter((o) => o.stereoName)
-						.map((o, i) => ({ id: String(i), label: o.stereoName })),
+					label: 'Output',
+					choices: outputMuteChoices(self.outputs, self.items),
 					default: '0',
 				},
 			],
 			callback: (feedback) => {
-				const pairs = (self.outputs || []).filter((o) => o.stereoName)
-				const output = pairs[Number(feedback.options.channel)]
-				const itemId = output?.monitor ? self.monitoring?.mute : output?.mute
+				const output = outputFromMuteChoice(self.outputs, feedback.options.channel)
+				const itemId = outputMuteItem(self.outputs, self.items, self.monitoring, output)
 				if (!itemId) return false
 				const item = self.items.get(itemId)
 				return item && (item.value === 'true' || item.value === '1')

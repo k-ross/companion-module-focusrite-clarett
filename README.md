@@ -107,6 +107,8 @@ This only needs to be done once.
 | **Dim Monitor**       | Toggle dim on the monitor output (Out 1-2) |
 | **Talkback**          | Activate talkback (requires item ID)       |
 
+Output actions follow the STEREO setting in Focusrite Control. While a pair is linked it is listed and controlled as one, for example `Line Outputs 3-4`, because the device only accepts changes through the left channel. While unlinked, each channel is listed and controlled on its own. Toggling STEREO updates the list without a reconnect.
+
 ### Advanced
 
 | Action               | Description                           |

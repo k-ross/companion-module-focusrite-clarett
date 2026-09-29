@@ -305,6 +305,14 @@ export default class FocusriteClarettInstance extends InstanceBase {
 			this.items.set(itemId, { id: itemId, value: value })
 		}
 
+		// Toggling STEREO in Focusrite Control changes how an output pair is
+		// listed, "Line Outputs 3-4" versus the two channels on their own, so
+		// rebuild the definitions that list them.
+		if ((this.outputs || []).some((output) => output.stereo === itemId)) {
+			this.updateActions()
+			this.updateFeedbacks()
+		}
+
 		// Update variables for hardware inputs (air, mode)
 		this.updateHardwareInputVariable(itemId, value)
 

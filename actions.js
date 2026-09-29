@@ -4,6 +4,8 @@
  * Control actions for mixer inputs, outputs, routing, and hardware controls
  */
 
+import { outputControl, outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
+
 export function updateActions(self) {
 	// Build dynamic choices from device items
 	const inputChoices = []
@@ -96,10 +98,8 @@ export function updateActions(self) {
 				{
 					id: 'channel',
 					type: 'dropdown',
-					label: 'Output Pair',
-					choices: (self.outputs || [])
-						.filter((o) => o.stereoName)
-						.map((o, i) => ({ id: String(i), label: o.stereoName })),
+					label: 'Output',
+					choices: outputMuteChoices(self.outputs, self.items),
 					default: '0',
 				},
 				{
@@ -115,12 +115,11 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const pairs = (self.outputs || []).filter((o) => o.stereoName)
-				const output = pairs[Number(event.options.channel)]
-				const itemId = output?.monitor ? self.monitoring?.mute : output?.mute
+				const output = outputFromMuteChoice(self.outputs, event.options.channel)
+				const itemId = outputMuteItem(self.outputs, self.items, self.monitoring, output)
 
 				if (!itemId) {
-					self.log('warn', `No mute control for output pair ${event.options.channel}`)
+					self.log('warn', `No mute control for output ${output?.name ?? event.options.channel}`)
 					return
 				}
 
@@ -256,7 +255,9 @@ export function updateActions(self) {
 			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
-				const itemId = output?.volume
+				// A right channel follows its left partner only while the pair is
+				// linked. Unlinked, it has a volume of its own.
+				const itemId = outputControl(self.outputs, self.items, output, 'volume')
 
 				if (!itemId) {
 					self.log('warn', `No volume control for output ${event.options.channel}`)
@@ -336,7 +337,9 @@ export function updateActions(self) {
 			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
-				const itemId = output?.volume
+				// A right channel follows its left partner only while the pair is
+				// linked. Unlinked, it has a volume of its own.
+				const itemId = outputControl(self.outputs, self.items, output, 'volume')
 
 				if (!itemId) {
 					self.log('warn', `No volume control for output ${event.options.channel}`)
